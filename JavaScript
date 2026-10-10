@@ -1,0 +1,258 @@
+
+/* ==========================================
+   CIAMA TRADING — AUTHENTIFICATION SUPABASE
+   ========================================== */
+
+"use strict";
+
+// 1. Configuration Supabase
+const SUPABASE_URL =
+  "https://eporkayzzizxiidcfoop.supabase.co";
+
+const SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_TrwGhAKy-r8U2c3-d5_7KQ_p8Cq_X55";
+
+// Vérifier que la bibliothèque Supabase est chargée
+if (!window.supabase) {
+  throw new Error(
+    "Supabase n'est pas chargé. Vérifie les scripts dans index.html."
+  );
+}
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
+
+// 2. Éléments du formulaire
+const registerForm = document.getElementById("registerForm");
+const loginForm = document.getElementById("loginForm");
+
+const registerTab = document.getElementById("registerTab");
+const loginTab = document.getElementById("loginTab");
+
+const formTitle = document.getElementById("formTitle");
+const formDescription = document.getElementById("formDescription");
+const formMessage = document.getElementById("formMessage");
+const authSection = document.getElementById("authSection");
+
+// 3. Afficher les messages
+function showMessage(message, type = "") {
+  formMessage.textContent = message;
+  formMessage.className = "form-message";
+
+  if (type) {
+    formMessage.classList.add(type);
+  }
+}
+
+// 4. Afficher l'inscription
+function showRegister() {
+  registerForm.hidden = false;
+  loginForm.hidden = true;
+
+  registerTab.classList.add("active");
+  loginTab.classList.remove("active");
+
+  formTitle.textContent = "Créer un compte";
+  formDescription.textContent =
+    "Inscrivez-vous pour accéder à votre espace CIAMA TRADING.";
+
+  showMessage("");
+}
+
+// 5. Afficher la connexion
+function showLogin() {
+  registerForm.hidden = true;
+  loginForm.hidden = false;
+
+  registerTab.classList.remove("active");
+  loginTab.classList.add("active");
+
+  formTitle.textContent = "Se connecter";
+  formDescription.textContent =
+    "Connectez-vous à votre espace CIAMA TRADING.";
+
+  showMessage("");
+}
+
+// 6. Faire défiler jusqu'aux formulaires
+function scrollToAuth() {
+  authSection.scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+// 7. Boutons de navigation
+registerTab.addEventListener("click", showRegister);
+loginTab.addEventListener("click", showLogin);
+
+document.getElementById("goLogin").addEventListener("click", showLogin);
+document.getElementById("goRegister").addEventListener("click", showRegister);
+
+document.getElementById("headerLogin").addEventListener("click", () => {
+  showLogin();
+  scrollToAuth();
+});
+
+document.getElementById("heroRegister").addEventListener("click", () => {
+  showRegister();
+  scrollToAuth();
+});
+
+// 8. Inscription avec Supabase
+registerForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const email = document.getElementById("registerEmail")
+    .value.trim();
+
+  const password = document.getElementById("registerPassword")
+    .value;
+
+  const confirmPassword = document.getElementById("confirmPassword")
+    .value;
+
+  const inviteCode = document.getElementById("inviteCode")
+    .value.trim();
+
+  if (!email) {
+    showMessage("Entre une adresse e-mail valide.", "error");
+    return;
+  }
+
+  if (password.length < 8) {
+    showMessage(
+      "Le mot de passe doit contenir au moins 8 caractères.",
+      "error"
+    );
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    showMessage(
+      "Les deux mots de passe ne correspondent pas.",
+      "error"
+    );
+    return;
+  }
+
+  const submitButton =
+    registerForm.querySelector('button[type="submit"]');
+
+  submitButton.disabled = true;
+  submitButton.textContent = "Inscription en cours...";
+
+  try {
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        emailRedirectTo: window.location.origin,
+        data: {
+          invite_code_saisi: inviteCode
+        }
+      }
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (data.session) {
+      showMessage(
+        "Ton compte est créé et tu es connecté. Le tableau de bord sera ajouté à l'étape suivante.",
+        "success"
+      );
+    } else {
+      showMessage(
+        "Inscription enregistrée ! Vérifie ta boîte e-mail et confirme ton adresse avant de te connecter.",
+        "success"
+      );
+    }
+
+  } catch (error) {
+    console.error("Erreur d'inscription :", error);
+
+    showMessage(
+      "Impossible de créer le compte : " + error.message,
+      "error"
+    );
+
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "S'inscrire";
+  }
+});
+
+// 9. Connexion avec Supabase
+loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const email = document.getElementById("loginEmail")
+    .value.trim();
+
+  const password = document.getElementById("loginPassword")
+    .value;
+
+  if (!email || !password) {
+    showMessage(
+      "Remplis ton adresse e-mail et ton mot de passe.",
+      "error"
+    );
+    return;
+  }
+
+  const submitButton =
+    loginForm.querySelector('button[type="submit"]');
+
+  submitButton.disabled = true;
+  submitButton.textContent = "Connexion en cours...";
+
+  try {
+    const { data, error } =
+      await supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    console.info("Connexion réussie :", data.user.id);
+
+    showMessage(
+      "Connexion réussie ! L'authentification fonctionne. Le tableau de bord sera ajouté à l'étape suivante.",
+      "success"
+    );
+
+  } catch (error) {
+    console.error("Erreur de connexion :", error);
+
+    showMessage(
+      "Connexion impossible : " + error.message,
+      "error"
+    );
+
+  } finally {
+    submitButton.disabled = false;
+    submitButton.textContent = "Se connecter";
+  }
+});
+
+// 10. Affichage initial
+showRegister();
+
+// 11. Vérifier si une session existe déjà
+supabaseClient.auth.getSession().then(({ data, error }) => {
+  if (error) {
+    console.error("Erreur de session :", error.message);
+    return;
+  }
+
+  if (data.session) {
+    console.info("Une session CIAMA TRADING est déjà active.");
+  }
+});
